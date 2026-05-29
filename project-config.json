@@ -1,0 +1,13 @@
+{
+    "name": "NS-SHAFT",
+    "description": "Project NS-SHAFT",
+    "toolkit": "cc65",
+    "sources": [
+        "src/NS-SHAFT.c"
+    ],
+    "build": "debug",
+    "definitions": [],
+    "includes": [],
+    "args": [],
+    "compiler": ""
+}
