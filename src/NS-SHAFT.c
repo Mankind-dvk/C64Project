@@ -1,5 +1,6 @@
 #include <conio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <peekpoke.h>
 #include <joystick.h>
 
@@ -25,6 +26,8 @@
 // 数值越大，下落越慢
 #define FALL_DELAY 12
 #define SCROLL_DELAY 20
+// 数值越大，摇杆移动越慢
+#define JOY_MOVE_DELAY 8
 
 // 平台数量
 #define PLATFORM_COUNT 6
@@ -36,9 +39,11 @@
 unsigned char player_x;
 unsigned char player_y;
 
+unsigned char joy_move_counter = 0;
 unsigned char fall_counter = 0;
 unsigned char scroll_counter = 0;
-
+unsigned int score = 0;
+unsigned char life = 3;
 unsigned char game_over = 0;
 
 // 平台数据
@@ -67,6 +72,28 @@ void draw_border(void) {
     }
 }
 
+
+// renew score display in UI (called when score changes)
+void update_score_ui(void) {
+    gotoxy(UI_LEFT, 5);
+
+    // fist use space to clear previous score (in case new score has fewer digits than old score)
+    cputs("     ");
+
+    gotoxy(UI_LEFT, 5);
+    cprintf("%u", score);
+}
+
+void update_life_ui(void) {
+    gotoxy(UI_LEFT, 8);
+
+    // clear previous life display
+    cputs("     ");
+
+    gotoxy(UI_LEFT, 8);
+    cprintf("%u", life);
+}
+
 // 绘制右侧 UI
 void draw_ui(void) {
     gotoxy(UI_LEFT, 2);
@@ -75,14 +102,12 @@ void draw_ui(void) {
     gotoxy(UI_LEFT, 4);
     cputs("SCORE");
 
-    gotoxy(UI_LEFT, 5);
-    cputs("0000");
+    update_score_ui();
 
     gotoxy(UI_LEFT, 7);
     cputs("LIFE");
 
-    gotoxy(UI_LEFT, 8);
-    cputs("0000");
+    update_life_ui();
 }
 
 // draw a platform at (x, y) with given length
@@ -221,7 +246,7 @@ void recycle_platforms(void) {
 }
 
 
-
+/*
 // detect player input and move left or right accordingly
 void handle_input(void) {
     char key;
@@ -242,7 +267,39 @@ void handle_input(void) {
         }
     }
 }
+*/
+// detect player input from joystick and move left or right accordingly
+void handle_input(void) {
+    unsigned char joy;
 
+    joy_move_counter++;
+
+    if (joy_move_counter < JOY_MOVE_DELAY) {
+        return;
+    }
+
+    joy_move_counter = 0;
+
+    // C64 usually uses port2 
+    joy = joy_read(JOY_2);
+
+    // Joystick left
+    if (JOY_LEFT(joy)) {
+        if (player_x > GAME_LEFT + 1) {
+            move_player(player_x - 1, player_y);
+        }
+    }
+
+    // Joystick right
+    if (JOY_RIGHT(joy)) {
+        if (player_x < GAME_RIGHT - 1) {
+            move_player(player_x + 1, player_y);
+        }
+    }
+}
+
+
+// auto move function
 // check if player should fall and move down if necessary
 void update_fall(void) {
     fall_counter++;
@@ -305,18 +362,11 @@ void update_scroll(void) {
     }
 }
 
-// simple delay function to slow down the main loop (adjust the loop count as needed for desired speed)
-void small_delay(void) {
-    unsigned int i;
 
-    for (i = 0; i < 300; i++) {
-        // simple empty loop for delay
-    }
-}
-
+// ganme over and reset function
 // show game over message
 void show_game_over(void) {
-    gotoxy(8, 11);
+    gotoxy(10, 10);
     cputs("GAME OVER");
 
     gotoxy(5, 13);
@@ -356,10 +406,22 @@ void restart_game(void) {
     draw_platforms();
     draw_player();
 }
+
+
+// simple delay function to slow down the main loop (adjust the loop count as needed for desired speed)
+void small_delay(void) {
+    unsigned int i;
+
+    for (i = 0; i < 300; i++) {
+        // simple empty loop for delay
+    }
+}
+
+
 void main(void) {
     clrscr();
     cursor(0);
-    joy_install(&joy_static_stddrv);
+    joy_install(joy_static_stddrv);
 
     // random seed from memory location 162 (can be changed to any other location that changes over time, such as a timer or joystick input)
     srand(PEEK(162));
