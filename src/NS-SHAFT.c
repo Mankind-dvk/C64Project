@@ -1,6 +1,7 @@
 #include <conio.h>
 #include <stdlib.h>
 #include <peekpoke.h>
+#include <joystick.h>
 
 #define SCREEN_W 40
 #define SCREEN_H 25
@@ -20,6 +21,7 @@
 #define BORDER_CHAR   '#'
 #define PLATFORM_CHAR '='
 
+
 // 数值越大，下落越慢
 #define FALL_DELAY 12
 #define SCROLL_DELAY 20
@@ -36,6 +38,8 @@ unsigned char player_y;
 
 unsigned char fall_counter = 0;
 unsigned char scroll_counter = 0;
+
+unsigned char game_over = 0;
 
 // 平台数据
 unsigned char platform_x[PLATFORM_COUNT];  // 平台起始 x 坐标
@@ -247,9 +251,9 @@ void update_fall(void) {
         fall_counter = 0;
 
         // if player is at or below the bottom border, do not move down
-        if (player_y >= GAME_BOTTOM - 1) {
-            return;
-        }
+        // (player_y >= GAME_BOTTOM - 1) {
+        //    return;
+        //}
 
         // if there is a platform right below the player, do not move down
         if (player_on_platform()) {
@@ -286,9 +290,9 @@ void update_scroll(void) {
 
         // if player is standing on a platform, move them up with the platform
         if (standing) {
-            if (player_y > GAME_TOP + 1) {
+            //if (player_y > GAME_TOP + 1) {
                 player_y--;
-            }
+            //}
         }
 
         // redraw borders and UI to prevent them from being overwritten by platforms
@@ -310,11 +314,52 @@ void small_delay(void) {
     }
 }
 
+// show game over message
+void show_game_over(void) {
+    gotoxy(8, 11);
+    cputs("GAME OVER");
 
+    gotoxy(5, 13);
+    cputs("PRESS R TO RESTART");
+}
 
+// Check gameover condition: if player touches top or bottom border, set game_over flag and show game over message
+void check_game_over(void) {
+    if (player_y <= GAME_TOP + 1) {
+        game_over = 1;
+    }
+
+    if (player_y >= GAME_BOTTOM - 1) {
+        game_over = 1;
+    }
+
+    if (game_over) {
+        show_game_over();
+    }
+}
+
+// restart the game by resetting all variables and redrawing everything
+void restart_game(void) {
+    clrscr();
+
+    game_over = 0;
+    fall_counter = 0;
+    scroll_counter = 0;
+
+    player_x = (GAME_LEFT + GAME_RIGHT) / 2;
+    player_y = 3;
+
+    generate_platforms();
+
+    draw_border();
+    draw_ui();
+    draw_platforms();
+    draw_player();
+}
 void main(void) {
     clrscr();
     cursor(0);
+    joy_install(&joy_static_stddrv);
 
     // random seed from memory location 162 (can be changed to any other location that changes over time, such as a timer or joystick input)
     srand(PEEK(162));
@@ -330,10 +375,22 @@ void main(void) {
     draw_platforms();
     draw_player();
 
-    while (1) {
-        handle_input(); 
-        update_fall();  
-        update_scroll(); 
-        small_delay();  
+while (1) {
+    if (!game_over) {
+        handle_input();
+        update_fall();
+        update_scroll();
+        check_game_over();
+    } else {
+        if (kbhit()) {
+            char key = cgetc();
+
+            if (key == 'r' || key == 'R') {
+                restart_game();
+            }
+        }
     }
+
+    small_delay();
+}
 }
